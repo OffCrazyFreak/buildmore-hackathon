@@ -192,8 +192,9 @@
         let cell = 18;
         let rafId = 0;
         let wind = 0;
+        let seedTimer = 0;
 
-        function resize() {
+        function fit() {
           const dpr = Math.min(window.devicePixelRatio || 1, 2);
           width = window.innerWidth;
           height = window.innerHeight;
@@ -203,7 +204,20 @@
           cell = Math.max(14, Math.min(24, Math.floor(width / 70)));
           ctx.font = cell + "px 'VT323', monospace";
           ctx.textBaseline = "top";
-          seed();
+        }
+
+        function resize() {
+          fit();
+          clearTimeout(seedTimer);
+          // Reseeding per resize event stutters, so wait for the drag to settle (except when nothing animates).
+          if (reduced) seed();
+          else seedTimer = setTimeout(seed, 150);
+        }
+
+        function drawStill() {
+          ctx.fillStyle = "#0e0a04";
+          ctx.fillRect(0, 0, width, height);
+          draw(0);
         }
 
         function seed() {
@@ -219,6 +233,7 @@
               seedChar: Math.floor(Math.random() * GLYPHS.length),
             });
           }
+          if (reduced) drawStill();
         }
 
         function step(dt) {
@@ -311,14 +326,9 @@
         });
 
         document.fonts.ready.then(() => {
-          resize();
-          if (reduced) {
-            ctx.fillStyle = "#0e0a04";
-            ctx.fillRect(0, 0, width, height);
-            draw(0);
-          } else {
-            start();
-          }
+          fit();
+          seed();
+          start();
         });
       })();
     </script>

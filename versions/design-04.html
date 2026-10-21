@@ -176,6 +176,14 @@
           shelf.y = r.top;
           shelf.w = r.width;
           shelf.h = r.height;
+          // Resizing the canvas clears it, and nothing else repaints the still frame.
+          if (reduced) settle();
+        }
+
+        // Settle the pile offline so the still frame looks like the end state, not a mid-air drop.
+        function settle() {
+          for (let i = 0; i < 400; i += 1) step();
+          draw();
         }
 
         function spawn(x, y, count) {
@@ -199,7 +207,29 @@
           const dx = b.x - cx;
           const dy = b.y - cy;
           const d2 = dx * dx + dy * dy;
-          if (d2 >= b.r * b.r || d2 === 0) return;
+          if (d2 >= b.r * b.r) return;
+          if (d2 === 0) {
+            // Centre is inside the box, so push out through the nearest edge instead of falling through.
+            const top = b.y - shelf.y;
+            const bottom = shelf.y + shelf.h - b.y;
+            const left = b.x - shelf.x;
+            const right = shelf.x + shelf.w - b.x;
+            const nearest = Math.min(top, bottom, left, right);
+            if (nearest === top) {
+              b.y = shelf.y - b.r;
+              b.vy = -Math.abs(b.vy) * 0.6;
+            } else if (nearest === bottom) {
+              b.y = shelf.y + shelf.h + b.r;
+              b.vy = Math.abs(b.vy) * 0.6;
+            } else if (nearest === left) {
+              b.x = shelf.x - b.r;
+              b.vx = -Math.abs(b.vx) * 0.6;
+            } else {
+              b.x = shelf.x + shelf.w + b.r;
+              b.vx = Math.abs(b.vx) * 0.6;
+            }
+            return;
+          }
           const d = Math.sqrt(d2);
           const nx = dx / d;
           const ny = dy / d;
@@ -215,7 +245,8 @@
         function step() {
           for (let i = 0; i < balls.length; i += 1) {
             const b = balls[i];
-            b.vy += GRAVITY;
+            // Capping fall speed at one radius per step keeps a ball from skipping the shelf in a single frame.
+            b.vy = Math.max(-b.r, Math.min(b.r, b.vy + GRAVITY));
 
             if (pointer.down) {
               const dx = b.x - pointer.x;
@@ -335,9 +366,7 @@
             spawn(Math.random() * width, -60 - Math.random() * height, 1);
           }
           if (reduced) {
-            // Settle the pile offline so the still frame looks like the end state, not a mid-air drop.
-            for (let i = 0; i < 400; i += 1) step();
-            draw();
+            settle();
           } else {
             start();
           }

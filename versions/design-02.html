@@ -41,7 +41,19 @@
         font-family: "DM Mono", monospace;
         overflow: hidden;
         touch-action: none;
+      }
+
+      body.has-dot {
         cursor: none;
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
       }
 
       .hero {
@@ -101,15 +113,16 @@
         color: var(--red);
       }
 
+      .word {
+        display: inline-block;
+        white-space: nowrap;
+      }
+
       .ch {
         display: inline-block;
         will-change: transform;
         opacity: 0;
         animation: drop 700ms cubic-bezier(0.2, 0.9, 0.3, 1.2) forwards;
-      }
-
-      .ch.space {
-        width: 0.3em;
       }
 
       @keyframes drop {
@@ -206,26 +219,34 @@
 
         function split(node, index) {
           const text = node.textContent;
-          node.setAttribute("aria-label", text);
           node.textContent = "";
-          const chars = Array.from(text);
-          chars.forEach((char, i) => {
-            const span = document.createElement("span");
-            span.className = "ch" + (char === " " ? " space" : "");
-            span.textContent = char === " " ? " " : char;
-            span.setAttribute("aria-hidden", "true");
-            span.style.animationDelay = index * 220 + i * 28 + "ms";
-            // A forwards-filling animation outranks inline transforms, so drop it once it has played.
-            span.addEventListener(
-              "animationend",
-              () => {
-                span.style.animation = "none";
-                span.style.opacity = "1";
-              },
-              { once: true },
-            );
-            node.appendChild(span);
-            if (char !== " ") {
+          const label = document.createElement("span");
+          label.className = "sr-only";
+          label.textContent = text;
+          node.appendChild(label);
+          const holder = document.createElement("span");
+          holder.setAttribute("aria-hidden", "true");
+          let i = 0;
+          // Letters are inline-block, so group them per word or the browser wraps mid-word.
+          for (const word of text.split(" ")) {
+            const group = document.createElement("span");
+            group.className = "word";
+            for (const char of word) {
+              const span = document.createElement("span");
+              span.className = "ch";
+              span.textContent = char;
+              span.style.animationDelay = index * 220 + i * 28 + "ms";
+              i += 1;
+              // A forwards-filling animation outranks inline transforms, so drop it once it has played.
+              span.addEventListener(
+                "animationend",
+                () => {
+                  span.style.animation = "none";
+                  span.style.opacity = "1";
+                },
+                { once: true },
+              );
+              group.appendChild(span);
               letters.push({
                 el: span,
                 x: 0,
@@ -237,7 +258,10 @@
                 phase: Math.random() * Math.PI * 2,
               });
             }
-          });
+            holder.appendChild(group);
+            holder.appendChild(document.createTextNode(" "));
+          }
+          node.appendChild(holder);
         }
 
         // Offsets ignore transforms, so rest positions stay correct while letters are mid-spring or mid-drop.
@@ -256,10 +280,12 @@
           });
         }
 
-        function step() {
-          tick += 0.016;
+        function step(dt) {
+          tick += dt;
+          const k = dt * 60;
           const stiffness = 0.08;
-          const damping = 0.82;
+          const damping = Math.pow(0.82, k);
+          const follow = 1 - Math.pow(0.82, k);
 
           letters.forEach((l) => {
             let tx = Math.sin(tick * 0.8 + l.phase) * 1.5;
@@ -268,7 +294,7 @@
             if (pointer.on) {
               const dx = pointer.x - l.cx;
               const dy = pointer.y - l.cy;
-              const d = Math.hypot(dx, dy);
+              const d = Math.hypot(dx, dy) || 1;
               if (d < RADIUS) {
                 const pull = (1 - d / RADIUS) * 34;
                 tx += (dx / d) * pull;
@@ -276,10 +302,10 @@
               }
             }
 
-            l.vx = (l.vx + (tx - l.x) * stiffness) * damping;
-            l.vy = (l.vy + (ty - l.y) * stiffness) * damping;
-            l.x += l.vx;
-            l.y += l.vy;
+            l.vx = (l.vx + (tx - l.x) * stiffness * k) * damping;
+            l.vy = (l.vy + (ty - l.y) * stiffness * k) * damping;
+            l.x += l.vx * k;
+            l.y += l.vy * k;
             const rot = l.vx * 0.6;
             l.el.style.transform =
               "translate(" +
@@ -291,20 +317,24 @@
               "deg)";
           });
 
-          cursor.x += (pointer.x - cursor.x) * 0.18;
-          cursor.y += (pointer.y - cursor.y) * 0.18;
+          cursor.x += (pointer.x - cursor.x) * follow;
+          cursor.y += (pointer.y - cursor.y) * follow;
           dot.style.transform = "translate(" + pointer.x + "px," + pointer.y + "px)";
           ring.style.transform =
             "translate(" + cursor.x.toFixed(1) + "px," + cursor.y.toFixed(1) + "px)";
         }
 
-        function frame() {
-          step();
+        let last = 0;
+        function frame(now) {
+          const dt = Math.min(1 / 30, (now - last) / 1000) || 1 / 60;
+          last = now;
+          step(dt);
           rafId = requestAnimationFrame(frame);
         }
 
         function start() {
           if (rafId || reduced) return;
+          last = performance.now();
           rafId = requestAnimationFrame(frame);
         }
 
@@ -317,6 +347,7 @@
           pointer.x = event.clientX;
           pointer.y = event.clientY;
           pointer.on = true;
+          document.body.classList.add("has-dot");
           dot.classList.add("on");
           ring.classList.add("on");
         }
@@ -339,7 +370,6 @@
 
         window.addEventListener("pointermove", onMove, { passive: true });
         window.addEventListener("pointerdown", onMove, { passive: true });
-        window.addEventListener("pointerup", onOff);
         window.addEventListener("pointercancel", onOff);
         document.addEventListener("pointerleave", onOff);
         window.addEventListener("resize", measure);

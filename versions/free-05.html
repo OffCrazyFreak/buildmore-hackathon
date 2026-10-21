@@ -119,14 +119,19 @@
         let height = 0;
         let time = 0;
         let frame = 0;
+        let last = 0;
+        let seedTimer = 0;
 
-        function resize() {
+        function fit() {
           const dpr = Math.min(window.devicePixelRatio || 1, 2);
           width = window.innerWidth;
           height = window.innerHeight;
           canvas.width = Math.round(width * dpr);
           canvas.height = Math.round(height * dpr);
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+
+        function seed() {
           cols = Math.min(70, Math.ceil(width / spacing) + 1);
           rows = Math.min(50, Math.ceil(height / spacing) + 1);
           const sx = width / (cols - 1);
@@ -140,8 +145,17 @@
           if (reduceMotion) draw();
         }
 
-        function simulate() {
+        function resize() {
+          fit();
+          clearTimeout(seedTimer);
+          // Rebuilding the grid per resize event stutters, so wait for the drag to settle (except when nothing animates).
+          if (reduceMotion) seed();
+          else seedTimer = setTimeout(seed, 150);
+        }
+
+        function simulate(k) {
           const radius = 170;
+          const damping = Math.pow(0.9, k);
           for (let i = 0; i < points.length; i += 1) {
             const p = points[i];
             const dx = p.rx + p.x - pointer.x;
@@ -149,7 +163,7 @@
             const d2 = dx * dx + dy * dy;
             if (d2 < radius * radius) {
               const d = Math.sqrt(d2) || 1;
-              const f = (1 - d / radius) * 2.4;
+              const f = (1 - d / radius) * 2.4 * k;
               p.vx += (dx / d) * f;
               p.vy += (dy / d) * f;
             }
@@ -179,12 +193,12 @@
               n += 1;
             }
             // Neighbour coupling lets a poke travel outward as a wave instead of a dent.
-            p.vx += (nx / n - p.x) * 0.12 - p.x * 0.03;
-            p.vy += (ny / n - p.y) * 0.12 - p.y * 0.03;
-            p.vx *= 0.9;
-            p.vy *= 0.9;
-            p.x += p.vx;
-            p.y += p.vy;
+            p.vx += ((nx / n - p.x) * 0.12 - p.x * 0.03) * k;
+            p.vy += ((ny / n - p.y) * 0.12 - p.y * 0.03) * k;
+            p.vx *= damping;
+            p.vy *= damping;
+            p.x += p.vx * k;
+            p.y += p.vy * k;
           }
         }
 
@@ -212,15 +226,16 @@
           ctx.stroke();
         }
 
-        function updateTilt() {
+        function updateTilt(k) {
           let tx = Math.sin(time * 0.5) * 3;
           let ty = Math.cos(time * 0.4) * 2;
           if (pointer.inside) {
             tx = (pointer.x / width - 0.5) * 18;
             ty = -(pointer.y / height - 0.5) * 18;
           }
-          tilt.x += (tx - tilt.x) * 0.08;
-          tilt.y += (ty - tilt.y) * 0.08;
+          const follow = 1 - Math.pow(0.92, k);
+          tilt.x += (tx - tilt.x) * follow;
+          tilt.y += (ty - tilt.y) * follow;
           tiltEl.style.transform =
             "perspective(900px) rotateX(" +
             tilt.y.toFixed(2) +
@@ -229,16 +244,21 @@
             "deg)";
         }
 
-        function step() {
-          time += 0.016;
-          simulate();
+        function step(now) {
+          const dt = Math.min(1 / 30, (now - last) / 1000) || 1 / 60;
+          last = now;
+          const k = dt * 60;
+          time += dt;
+          simulate(k);
           draw();
-          updateTilt();
+          updateTilt(k);
           frame = requestAnimationFrame(step);
         }
 
         function start() {
-          if (!frame && !reduceMotion) frame = requestAnimationFrame(step);
+          if (frame || reduceMotion) return;
+          last = performance.now();
+          frame = requestAnimationFrame(step);
         }
 
         function stop() {
@@ -282,7 +302,8 @@
         });
         window.addEventListener("resize", resize);
 
-        resize();
+        fit();
+        seed();
         start();
       })();
     </script>

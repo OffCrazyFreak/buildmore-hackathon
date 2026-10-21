@@ -267,6 +267,8 @@
           canvas.height = Math.floor(window.innerHeight * dpr);
           gl.viewport(0, 0, canvas.width, canvas.height);
           gl.uniform2f(uRes, canvas.width, canvas.height);
+          // Resizing the canvas clears it, and nothing else repaints the still frame.
+          if (reduced) render(startTime + 2400);
         }
 
         function render(now) {
@@ -313,11 +315,7 @@
         });
 
         resize();
-        if (reduced) {
-          render(startTime + 2400);
-        } else {
-          start();
-        }
+        start();
       })();
     </script>
   </body>

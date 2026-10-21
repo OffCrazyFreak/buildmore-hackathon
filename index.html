@@ -186,19 +186,22 @@
       }
 
       window.addEventListener("hashchange", render);
-      window.addEventListener("keydown", (event) => {
-        if (event.key === "ArrowRight") step(1);
-        if (event.key === "ArrowLeft") step(-1);
-        if (event.key === "r") frame.contentWindow.location.reload();
-      });
+      function handleKey(key) {
+        if (key === "ArrowRight") step(1);
+        if (key === "ArrowLeft") step(-1);
+        if (key === "r") frame.src = frame.src;
+      }
+
+      window.addEventListener("keydown", (event) => handleKey(event.key));
 
       // The iframe swallows key events once it has focus, so forward its own keys up.
+      // Opened from disk every file:// page is its own origin, so the hook is best effort.
       frame.addEventListener("load", () => {
-        frame.contentWindow.addEventListener("keydown", (event) => {
-          if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
-            window.dispatchEvent(new KeyboardEvent("keydown", { key: event.key }));
-          }
-        });
+        try {
+          frame.contentWindow.addEventListener("keydown", (event) => handleKey(event.key));
+        } catch {
+          return;
+        }
       });
 
       render();

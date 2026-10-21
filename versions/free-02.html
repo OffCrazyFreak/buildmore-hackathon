@@ -88,10 +88,23 @@
         letter-spacing: 0.3em;
       }
 
+      .word {
+        display: inline-block;
+        white-space: nowrap;
+      }
+
       .letter {
         display: inline-block;
-        white-space: pre;
         will-change: transform;
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
       }
 
       :focus-visible {
@@ -117,19 +130,30 @@
         const pointer = { x: -9999, y: -9999, down: false, inside: false };
         let frame = 0;
         let time = 0;
+        let last = 0;
 
         function split(el) {
           const text = el.textContent;
-          el.setAttribute("aria-label", text);
           el.textContent = "";
+          const label = document.createElement("span");
+          label.className = "sr-only";
+          label.textContent = text;
+          el.appendChild(label);
           const holder = document.createElement("span");
           holder.setAttribute("aria-hidden", "true");
-          for (const ch of text) {
-            const span = document.createElement("span");
-            span.className = "letter";
-            span.textContent = ch;
-            holder.appendChild(span);
-            letters.push({ el: span, cx: 0, cy: 0, x: 0, y: 0, vx: 0, vy: 0 });
+          // Letters are inline-block, so group them per word or the browser wraps mid-word.
+          for (const word of text.split(" ")) {
+            const group = document.createElement("span");
+            group.className = "word";
+            for (const ch of word) {
+              const span = document.createElement("span");
+              span.className = "letter";
+              span.textContent = ch;
+              group.appendChild(span);
+              letters.push({ el: span, cx: 0, cy: 0, x: 0, y: 0, vx: 0, vy: 0 });
+            }
+            holder.appendChild(group);
+            holder.appendChild(document.createTextNode(" "));
           }
           el.appendChild(holder);
         }
@@ -143,8 +167,12 @@
           }
         }
 
-        function step() {
-          time += 0.016;
+        function step(now) {
+          const dt = Math.min(1 / 30, (now - last) / 1000) || 1 / 60;
+          last = now;
+          const k = dt * 60;
+          const damping = Math.pow(0.86, k);
+          time += dt;
           const radius = Math.min(220, window.innerWidth * 0.22);
           for (let i = 0; i < letters.length; i += 1) {
             const l = letters[i];
@@ -154,16 +182,16 @@
             if (d2 < radius * radius) {
               const d = Math.sqrt(d2) || 1;
               const push = (1 - d / radius) * (pointer.down ? -2.4 : 4);
-              l.vx += (dx / d) * push;
-              l.vy += (dy / d) * push;
+              l.vx += (dx / d) * push * k;
+              l.vy += (dy / d) * push * k;
             }
             const idleY = Math.sin(time * 1.4 + i * 0.25) * 3;
-            l.vx -= l.x * 0.06;
-            l.vy += (idleY - l.y) * 0.06;
-            l.vx *= 0.86;
-            l.vy *= 0.86;
-            l.x += l.vx;
-            l.y += l.vy;
+            l.vx -= l.x * 0.06 * k;
+            l.vy += (idleY - l.y) * 0.06 * k;
+            l.vx *= damping;
+            l.vy *= damping;
+            l.x += l.vx * k;
+            l.y += l.vy * k;
             const rot = l.vx * 1.5;
             l.el.style.transform =
               "translate(" +
@@ -185,7 +213,9 @@
         }
 
         function start() {
-          if (!frame && !reduceMotion) frame = requestAnimationFrame(step);
+          if (frame || reduceMotion) return;
+          last = performance.now();
+          frame = requestAnimationFrame(step);
         }
 
         function stop() {

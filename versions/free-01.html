@@ -108,6 +108,8 @@
         let height = 0;
         let time = 0;
         let frame = 0;
+        let last = 0;
+        let seedTimer = 0;
 
         function spawn(p) {
           p.x = Math.random() * width;
@@ -124,8 +126,9 @@
           return (Math.sin(x * 0.0035 + time) + Math.cos(y * 0.0028 - time * 0.6)) * Math.PI;
         }
 
-        function step(fade) {
-          time += 0.0035;
+        function step(fade, k) {
+          const damping = Math.pow(0.95, k);
+          time += 0.0035 * k;
           if (fade) {
             ctx.fillStyle = "rgba(244, 239, 230, 0.1)";
             ctx.fillRect(0, 0, width, height);
@@ -133,25 +136,25 @@
           const radius = Math.min(260, width * 0.25);
           for (const p of particles) {
             const a = flowAngle(p.x, p.y);
-            p.vx += Math.cos(a) * 0.06;
-            p.vy += Math.sin(a) * 0.06;
+            p.vx += Math.cos(a) * 0.06 * k;
+            p.vy += Math.sin(a) * 0.06 * k;
             const dx = p.x - pointer.x;
             const dy = p.y - pointer.y;
             const d2 = dx * dx + dy * dy;
             if (d2 < radius * radius) {
               const d = Math.sqrt(d2) || 1;
-              const f = (1 - d / radius) * (pointer.down ? -0.9 : 1.1);
+              const f = (1 - d / radius) * (pointer.down ? -0.9 : 1.1) * k;
               // Tangential push makes a vortex instead of a plain shove.
               p.vx += (-dy / d) * f + (dx / d) * f * 0.35;
               p.vy += (dx / d) * f + (dy / d) * f * 0.35;
             }
-            p.vx *= 0.95;
-            p.vy *= 0.95;
+            p.vx *= damping;
+            p.vy *= damping;
             p.px = p.x;
             p.py = p.y;
-            p.x += p.vx;
-            p.y += p.vy;
-            p.life -= 1;
+            p.x += p.vx * k;
+            p.y += p.vy * k;
+            p.life -= k;
             if (p.life < 0 || p.x < -10 || p.x > width + 10 || p.y < -10 || p.y > height + 10)
               spawn(p);
           }
@@ -167,7 +170,7 @@
           }
         }
 
-        function resize() {
+        function fit() {
           const dpr = Math.min(window.devicePixelRatio || 1, 2);
           width = window.innerWidth;
           height = window.innerHeight;
@@ -178,6 +181,9 @@
           ctx.lineCap = "round";
           ctx.fillStyle = "#f4efe6";
           ctx.fillRect(0, 0, width, height);
+        }
+
+        function seed() {
           const count = Math.min(900, Math.floor((width * height) / 1600));
           particles = [];
           for (let i = 0; i < count; i += 1) {
@@ -185,17 +191,29 @@
           }
           if (reduceMotion) {
             // One long still exposure stands in for the loop so the page is not blank.
-            for (let i = 0; i < 90; i += 1) step(false);
+            for (let i = 0; i < 90; i += 1) step(false, 1);
           }
         }
 
-        function loop() {
-          step(true);
+        function resize() {
+          fit();
+          clearTimeout(seedTimer);
+          // Reseeding per resize event stutters, so wait for the drag to settle (except when nothing animates).
+          if (reduceMotion) seed();
+          else seedTimer = setTimeout(seed, 150);
+        }
+
+        function loop(now) {
+          const dt = Math.min(1 / 30, (now - last) / 1000) || 1 / 60;
+          last = now;
+          step(true, dt * 60);
           frame = requestAnimationFrame(loop);
         }
 
         function start() {
-          if (!frame && !reduceMotion) frame = requestAnimationFrame(loop);
+          if (frame || reduceMotion) return;
+          last = performance.now();
+          frame = requestAnimationFrame(loop);
         }
 
         function stop() {
@@ -230,7 +248,8 @@
         });
         window.addEventListener("resize", resize);
 
-        resize();
+        fit();
+        seed();
         start();
       })();
     </script>

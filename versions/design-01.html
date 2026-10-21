@@ -169,15 +169,15 @@
         let particles = [];
         let rafId = 0;
         let time = 0;
+        let seedTimer = 0;
 
-        function resize() {
+        function fit() {
           dpr = Math.min(window.devicePixelRatio || 1, 2);
           width = window.innerWidth;
           height = window.innerHeight;
           canvas.width = Math.floor(width * dpr);
           canvas.height = Math.floor(height * dpr);
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-          seed();
         }
 
         function seed() {
@@ -186,6 +186,22 @@
           for (let i = 0; i < count; i += 1) {
             particles.push(makeParticle(true));
           }
+          if (reduced) drawStill();
+        }
+
+        function resize() {
+          fit();
+          clearTimeout(seedTimer);
+          // Reseeding per resize event stutters, so wait for the drag to settle (except when nothing animates).
+          if (reduced) seed();
+          else seedTimer = setTimeout(seed, 150);
+        }
+
+        function drawStill() {
+          ctx.fillStyle = "#0b0908";
+          ctx.fillRect(0, 0, width, height);
+          for (let i = 0; i < 40; i += 1) step(0.016);
+          draw();
         }
 
         function makeParticle(anywhere) {
@@ -310,15 +326,9 @@
           else start();
         });
 
-        resize();
-        if (reduced) {
-          ctx.fillStyle = "#0b0908";
-          ctx.fillRect(0, 0, width, height);
-          for (let i = 0; i < 40; i += 1) step(0.016);
-          draw();
-        } else {
-          start();
-        }
+        fit();
+        seed();
+        start();
       })();
     </script>
   </body>
