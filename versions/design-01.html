@@ -184,7 +184,7 @@
           const count = Math.min(MAX_PARTICLES, Math.floor((width * height) / 1500));
           particles = [];
           for (let i = 0; i < count; i += 1) {
-            particles.push(makeParticle(true));
+            particles.push(makeParticle());
           }
           if (reduced) drawStill();
         }
@@ -204,10 +204,10 @@
           draw();
         }
 
-        function makeParticle(anywhere) {
+        function makeParticle() {
           return {
             x: Math.random() * width,
-            y: anywhere ? Math.random() * height : height + 4,
+            y: Math.random() * height,
             vx: 0,
             vy: 0,
             size: 0.6 + Math.random() * 1.6,
@@ -231,7 +231,7 @@
             const p = particles[i];
             const a = flowAngle(p.x, p.y, time);
             p.vx += Math.cos(a) * 0.06;
-            p.vy += Math.sin(a) * 0.06 - 0.035;
+            p.vy += Math.sin(a) * 0.06 - 0.012;
 
             if (pointer.active) {
               const dx = p.x - pointer.x;
@@ -252,11 +252,14 @@
             p.x += p.vx;
             p.y += p.vy;
             p.heat *= 0.985;
-            p.life += 0.004;
+            p.life += 0.0012;
 
-            if (p.y < -6 || p.x < -6 || p.x > width + 6 || p.life > 1) {
-              particles[i] = makeParticle(false);
-            }
+            // Wrap instead of respawning so the field stays dense across the whole screen.
+            if (p.x < -6) p.x = width + 6;
+            if (p.x > width + 6) p.x = -6;
+            if (p.y < -6) p.y = height + 6;
+            if (p.y > height + 6) p.y = -6;
+            if (p.life > 1) particles[i] = makeParticle();
           }
         }
 
@@ -265,7 +268,7 @@
           ctx.fillRect(0, 0, width, height);
           for (let i = 0; i < particles.length; i += 1) {
             const p = particles[i];
-            const fade = Math.sin(p.life * Math.PI);
+            const fade = Math.min(1, Math.sin(p.life * Math.PI) * 3);
             const warm = 0.35 + p.heat * 0.65;
             const r = 255;
             const g = Math.floor(90 + warm * 90);

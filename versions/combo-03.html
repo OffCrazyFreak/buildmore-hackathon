@@ -1,0 +1,369 @@
+<!doctype html>
+<!-- Concept: ember ink on cream paper, spring letters that trail ink when they move fast -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BuildMore Hackathon</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@800&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --paper: #f4efe6;
+        --ink: #1c1814;
+        --ember: #ff7a1a;
+        --ember-dim: #b4471a;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        background: var(--paper);
+        color: var(--ink);
+        font-family: "IBM Plex Mono", monospace;
+        overflow: hidden;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+
+      #field {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .hero {
+        position: relative;
+        min-height: 100%;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        padding: 6vmin;
+        pointer-events: none;
+      }
+
+      .line-1 {
+        font-family: "Syne", sans-serif;
+        font-weight: 800;
+        font-size: clamp(2.6rem, 9vw, 8.5rem);
+        line-height: 0.95;
+        letter-spacing: -0.03em;
+      }
+
+      /* The bright ember fails 4.5:1 on paper, so the tagline uses the dim ember, which passes. */
+      .line-2 {
+        margin-top: 1.4rem;
+        font-size: clamp(0.85rem, 2.2vw, 1.45rem);
+        font-weight: 500;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--ember-dim);
+      }
+
+      .line-3 {
+        margin-top: 2.2rem;
+        font-size: clamp(0.75rem, 1.4vw, 0.95rem);
+        letter-spacing: 0.32em;
+        text-transform: uppercase;
+      }
+
+      .word {
+        display: inline-block;
+        white-space: nowrap;
+      }
+
+      .letter {
+        display: inline-block;
+        will-change: transform;
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="field" aria-hidden="true"></canvas>
+    <main class="hero">
+      <div>
+        <h1 class="line line-1" data-split>BuildMore Hackathon</h1>
+        <p class="line line-2" data-split>Prompt - Review - Ship - Repeat</p>
+        <p class="line line-3" data-split>coming soon</p>
+      </div>
+    </main>
+    <script>
+      (function () {
+        const canvas = document.getElementById("field");
+        const ctx = canvas.getContext("2d");
+        const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const MAX_PARTICLES = 1400;
+        const colors = ["#ff7a1a", "#b4471a", "#e8601c"];
+        const pointer = { x: -9999, y: -9999, down: false };
+        const letters = [];
+        let particles = [];
+        let cursor = 0;
+        let width = 0;
+        let height = 0;
+        let time = 0;
+        let frame = 0;
+        let last = 0;
+        let seedTimer = 0;
+
+        function split(el) {
+          const text = el.textContent;
+          el.textContent = "";
+          const label = document.createElement("span");
+          label.className = "sr-only";
+          label.textContent = text;
+          el.appendChild(label);
+          const holder = document.createElement("span");
+          holder.setAttribute("aria-hidden", "true");
+          // Letters are inline-block, so group them per word or the browser wraps mid-word.
+          for (const word of text.split(" ")) {
+            const group = document.createElement("span");
+            group.className = "word";
+            for (const ch of word) {
+              const span = document.createElement("span");
+              span.className = "letter";
+              span.textContent = ch;
+              group.appendChild(span);
+              letters.push({ el: span, cx: 0, cy: 0, x: 0, y: 0, vx: 0, vy: 0 });
+            }
+            holder.appendChild(group);
+            holder.appendChild(document.createTextNode(" "));
+          }
+          el.appendChild(holder);
+        }
+
+        function measure() {
+          for (const l of letters) l.el.style.transform = "";
+          for (const l of letters) {
+            const r = l.el.getBoundingClientRect();
+            l.cx = r.left + r.width / 2;
+            l.cy = r.top + r.height / 2;
+          }
+        }
+
+        function spawn(p) {
+          p.x = Math.random() * width;
+          p.y = Math.random() * height;
+          p.px = p.x;
+          p.py = p.y;
+          p.vx = 0;
+          p.vy = 0;
+          p.life = 120 + Math.random() * 240;
+          return p;
+        }
+
+        // Ink shed by a letter carries the letter's velocity so the streak reads as a wake.
+        function shed(l) {
+          const p = particles[cursor];
+          cursor = (cursor + 1) % particles.length;
+          p.x = l.cx + l.x + (Math.random() - 0.5) * 12;
+          p.y = l.cy + l.y + (Math.random() - 0.5) * 12;
+          p.px = p.x;
+          p.py = p.y;
+          p.vx = l.vx * 0.8 + (Math.random() - 0.5) * 1.2;
+          p.vy = l.vy * 0.8 + (Math.random() - 0.5) * 1.2;
+          p.life = 60 + Math.random() * 120;
+        }
+
+        function flowAngle(x, y) {
+          return (Math.sin(x * 0.0035 + time) + Math.cos(y * 0.0028 - time * 0.6)) * Math.PI;
+        }
+
+        function stepParticles(k) {
+          const damping = Math.pow(0.95, k);
+          const radius = Math.min(260, width * 0.25);
+          for (const p of particles) {
+            const a = flowAngle(p.x, p.y);
+            p.vx += Math.cos(a) * 0.06 * k;
+            p.vy += Math.sin(a) * 0.06 * k;
+            const dx = p.x - pointer.x;
+            const dy = p.y - pointer.y;
+            const d2 = dx * dx + dy * dy;
+            if (d2 < radius * radius) {
+              const d = Math.sqrt(d2) || 1;
+              const f = (1 - d / radius) * (pointer.down ? -0.9 : 1.1) * k;
+              // Tangential push makes a vortex instead of a plain shove.
+              p.vx += (-dy / d) * f + (dx / d) * f * 0.35;
+              p.vy += (dx / d) * f + (dy / d) * f * 0.35;
+            }
+            p.vx *= damping;
+            p.vy *= damping;
+            p.px = p.x;
+            p.py = p.y;
+            p.x += p.vx * k;
+            p.y += p.vy * k;
+            p.life -= k;
+            if (p.life < 0 || p.x < -10 || p.x > width + 10 || p.y < -10 || p.y > height + 10)
+              spawn(p);
+          }
+        }
+
+        function stepLetters(k) {
+          const damping = Math.pow(0.86, k);
+          const radius = Math.min(220, width * 0.22);
+          for (let i = 0; i < letters.length; i += 1) {
+            const l = letters[i];
+            const dx = l.cx + l.x - pointer.x;
+            const dy = l.cy + l.y - pointer.y;
+            const d2 = dx * dx + dy * dy;
+            if (d2 < radius * radius) {
+              const d = Math.sqrt(d2) || 1;
+              const push = (1 - d / radius) * (pointer.down ? -2.4 : 4);
+              l.vx += (dx / d) * push * k;
+              l.vy += (dy / d) * push * k;
+            }
+            const idleY = Math.sin(time * 1.4 + i * 0.25) * 3;
+            l.vx -= l.x * 0.06 * k;
+            l.vy += (idleY - l.y) * 0.06 * k;
+            l.vx *= damping;
+            l.vy *= damping;
+            l.x += l.vx * k;
+            l.y += l.vy * k;
+            const speed = Math.hypot(l.vx, l.vy);
+            if (speed > 2.5) {
+              const drops = Math.min(4, Math.ceil(speed / 2.5));
+              for (let n = 0; n < drops; n += 1) shed(l);
+            }
+            const shift = l.x.toFixed(2) + "px, " + l.y.toFixed(2) + "px";
+            l.el.style.transform =
+              "translate(" + shift + ") rotate(" + (l.vx * 1.5).toFixed(2) + "deg)";
+          }
+        }
+
+        function draw(fade) {
+          if (fade) {
+            ctx.fillStyle = "rgba(244, 239, 230, 0.1)";
+            ctx.fillRect(0, 0, width, height);
+          }
+          for (let c = 0; c < colors.length; c += 1) {
+            ctx.strokeStyle = colors[c];
+            ctx.beginPath();
+            for (const p of particles) {
+              if (p.color !== c) continue;
+              ctx.moveTo(p.px, p.py);
+              ctx.lineTo(p.x, p.y);
+            }
+            ctx.stroke();
+          }
+        }
+
+        function fit() {
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          width = window.innerWidth;
+          height = window.innerHeight;
+          canvas.width = Math.round(width * dpr);
+          canvas.height = Math.round(height * dpr);
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          ctx.lineWidth = 1.1;
+          ctx.lineCap = "round";
+        }
+
+        function seed() {
+          const count = Math.min(MAX_PARTICLES, Math.floor((width * height) / 1200));
+          particles = [];
+          cursor = 0;
+          for (let i = 0; i < count; i += 1) {
+            particles.push(spawn({ color: i % colors.length }));
+          }
+          if (reduceMotion) {
+            // One long still exposure stands in for the loop so the page is not blank.
+            for (let i = 0; i < 90; i += 1) {
+              stepParticles(1);
+              draw(false);
+            }
+          }
+        }
+
+        function resize() {
+          fit();
+          measure();
+          clearTimeout(seedTimer);
+          // Reseeding per resize event stutters, so wait for the drag to settle (except when nothing animates).
+          if (reduceMotion) seed();
+          else seedTimer = setTimeout(seed, 150);
+        }
+
+        function loop(now) {
+          const dt = Math.min(1 / 30, (now - last) / 1000) || 1 / 60;
+          last = now;
+          const k = dt * 60;
+          time += 0.0035 * k;
+          stepLetters(k);
+          stepParticles(k);
+          draw(true);
+          frame = requestAnimationFrame(loop);
+        }
+
+        function start() {
+          if (frame || reduceMotion) return;
+          last = performance.now();
+          frame = requestAnimationFrame(loop);
+        }
+
+        function stop() {
+          cancelAnimationFrame(frame);
+          frame = 0;
+        }
+
+        function track(e) {
+          pointer.x = e.clientX;
+          pointer.y = e.clientY;
+        }
+
+        function release() {
+          pointer.down = false;
+        }
+
+        document.querySelectorAll("[data-split]").forEach(split);
+        measure();
+        if (document.fonts) document.fonts.ready.then(measure);
+
+        window.addEventListener("pointermove", track);
+        window.addEventListener("pointerdown", (e) => {
+          pointer.down = true;
+          track(e);
+        });
+        window.addEventListener("pointerup", release);
+        window.addEventListener("pointercancel", release);
+        document.documentElement.addEventListener("pointerleave", () => {
+          pointer.x = -9999;
+          pointer.y = -9999;
+          pointer.down = false;
+        });
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden) stop();
+          else start();
+        });
+        window.addEventListener("resize", resize);
+
+        fit();
+        seed();
+        start();
+      })();
+    </script>
+  </body>
+</html>

@@ -2,7 +2,7 @@
 
 Static site, no build step. Each file under `versions/` is a fully self-contained HTML page: inline CSS and vanilla JS, Google Fonts as the only external request.
 
-- Kebab-case filenames. `design-0N` means built with the frontend design skill, `free-0N` without it.
+- Kebab-case filenames. `design-0N` means built with the frontend design skill, `free-0N` without it, `combo-0N` combines the kept ones.
 - `function name() {}` over arrow constants, except small inline callbacks. Double quotes in JS.
 - Comments explain a non-obvious decision in one line. Never narrate the code.
 - No em dashes or en dashes anywhere: code, comments, copy, commits.

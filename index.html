@@ -116,30 +116,23 @@
       <div class="group" id="free-group">
         <span class="label">no skill</span>
       </div>
+      <div class="group" id="combo-group">
+        <span class="label">combo</span>
+      </div>
       <span class="spacer"></span>
       <span class="hint" aria-hidden="true">arrow keys switch, r reloads</span>
       <a id="open" href="versions/design-01.html" target="_blank" rel="noopener"> open alone </a>
     </nav>
 
     <script>
-      const versions = [
-        "design-01",
-        "design-02",
-        "design-03",
-        "design-04",
-        "design-05",
-        "free-01",
-        "free-02",
-        "free-03",
-        "free-04",
-        "free-05",
-      ];
+      const versions = ["design-01", "free-01", "free-02", "combo-01", "combo-02", "combo-03"];
 
       const frame = document.getElementById("frame");
       const openLink = document.getElementById("open");
       const groups = {
         design: document.getElementById("design-group"),
         free: document.getElementById("free-group"),
+        combo: document.getElementById("combo-group"),
       };
       const buttons = new Map();
 
