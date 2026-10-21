@@ -121,7 +121,7 @@
       </div>
       <span class="spacer"></span>
       <span class="hint" aria-hidden="true">arrow keys switch, r reloads</span>
-      <a id="open" href="versions/design-01.html" target="_blank" rel="noopener"> open alone </a>
+      <a id="open" href="versions/design-01/" target="_blank" rel="noopener"> open alone </a>
     </nav>
 
     <script>
@@ -161,7 +161,7 @@
 
       function render() {
         const name = current();
-        const src = `versions/${name}.html`;
+        const src = `versions/${name}/`;
 
         if (frame.getAttribute("src") !== src) frame.src = src;
         openLink.href = src;
@@ -188,13 +188,8 @@
       window.addEventListener("keydown", (event) => handleKey(event.key));
 
       // The iframe swallows key events once it has focus, so forward its own keys up.
-      // Opened from disk every file:// page is its own origin, so the hook is best effort.
       frame.addEventListener("load", () => {
-        try {
-          frame.contentWindow.addEventListener("keydown", (event) => handleKey(event.key));
-        } catch {
-          return;
-        }
+        frame.contentWindow.addEventListener("keydown", (event) => handleKey(event.key));
       });
 
       render();

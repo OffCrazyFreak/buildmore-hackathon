@@ -1,0 +1,15 @@
+:root {
+  --bg: #f4efe6;
+  --fg: #1c1814;
+  /* The bright ember fails 4.5:1 on paper, so the tagline uses the dim ember, which passes. */
+  --accent: #b4471a;
+  --muted: var(--fg);
+  --font-body: "IBM Plex Mono", monospace;
+  --font-display: "Syne", sans-serif;
+}
+
+/* Dragging the pointer across the spring letters would otherwise select the text. */
+body {
+  user-select: none;
+  -webkit-user-select: none;
+}

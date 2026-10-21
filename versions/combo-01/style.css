@@ -1,0 +1,14 @@
+:root {
+  --bg: #0b0908;
+  --fg: #f6ead8;
+  --accent: #ff7a1a;
+  --muted: #a89684;
+  --font-body: "IBM Plex Mono", monospace;
+  --font-display: "Syne", sans-serif;
+}
+
+/* Dragging the pointer across the spring letters would otherwise select the text. */
+body {
+  user-select: none;
+  -webkit-user-select: none;
+}
