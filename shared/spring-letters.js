@@ -36,7 +36,7 @@ export function createSpringLetters({ pointer, onLetterStep }) {
       l.vy *= damping;
       l.x += l.vx * k;
       l.y += l.vy * k;
-      if (onLetterStep) onLetterStep(l);
+      onLetterStep(l);
       const shift = l.x.toFixed(2) + "px, " + l.y.toFixed(2) + "px";
       l.el.style.transform = "translate(" + shift + ") rotate(" + (l.vx * 1.5).toFixed(2) + "deg)";
     }

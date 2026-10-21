@@ -1,4 +1,4 @@
-export function createCanvas(canvas, { onFit, onResize, onSeed }) {
+export function createCanvas(canvas, { onResize, onSeed }) {
   const ctx = canvas.getContext("2d");
   const view = { ctx, width: 0, height: 0 };
   let seedTimer = 0;
@@ -10,12 +10,11 @@ export function createCanvas(canvas, { onFit, onResize, onSeed }) {
     canvas.width = Math.round(view.width * dpr);
     canvas.height = Math.round(view.height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (onFit) onFit(view);
   }
 
   function resize() {
     fit();
-    if (onResize) onResize(view);
+    onResize(view);
     clearTimeout(seedTimer);
     // Reseeding per resize event stutters and repeats any warm-up, so wait for the drag to settle.
     seedTimer = setTimeout(onSeed, 150);

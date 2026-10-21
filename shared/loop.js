@@ -28,7 +28,7 @@ export function createLoop({ update, still }) {
 
   // One settled frame stands in for the loop so the page is not blank.
   function renderStill() {
-    if (reduced && still) still();
+    if (reduced) still();
   }
 
   document.addEventListener("visibilitychange", () => {
@@ -36,5 +36,5 @@ export function createLoop({ update, still }) {
     else start();
   });
 
-  return { start, stop, reduced, renderStill };
+  return { start, renderStill };
 }

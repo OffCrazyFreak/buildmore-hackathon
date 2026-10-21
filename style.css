@@ -3,6 +3,10 @@
   --fg: #f6ead8;
   --accent: #ff7a1a;
   --muted: #a89684;
+  --ember-hot: #ff7a1a;
+  --ember-bright: #ffb347;
+  --ember-deep: #b4471a;
+  --trail-fade: rgba(11, 9, 8, 0.55);
   --font-body: "IBM Plex Mono", monospace;
   --font-display: "Syne", sans-serif;
 }

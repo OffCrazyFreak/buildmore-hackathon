@@ -1,11 +1,10 @@
 // One pointer for the whole page; touch-action: none in hero.css keeps touches from scrolling instead.
 export function createPointer() {
-  const pointer = { x: -9999, y: -9999, down: false, inside: false };
+  const pointer = { x: -9999, y: -9999, down: false };
 
   function track(event) {
     pointer.x = event.clientX;
     pointer.y = event.clientY;
-    pointer.inside = true;
   }
 
   function release() {
@@ -16,7 +15,6 @@ export function createPointer() {
     pointer.x = -9999;
     pointer.y = -9999;
     pointer.down = false;
-    pointer.inside = false;
   }
 
   window.addEventListener("pointermove", track);

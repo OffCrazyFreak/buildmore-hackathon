@@ -5,7 +5,7 @@ function makeLetter(ch) {
   return { el, hx: 0, hy: 0, w: 0, h: 0, x: 0, y: 0, vx: 0, vy: 0 };
 }
 
-export function splitText(el) {
+function splitText(el) {
   const text = el.textContent;
   const letters = [];
   el.textContent = "";
@@ -35,8 +35,8 @@ export function splitText(el) {
   return letters;
 }
 
-export function splitAll(selector = "[data-split]") {
+export function splitAll() {
   const letters = [];
-  document.querySelectorAll(selector).forEach((el) => letters.push(...splitText(el)));
+  document.querySelectorAll("[data-split]").forEach((el) => letters.push(...splitText(el)));
   return letters;
 }
