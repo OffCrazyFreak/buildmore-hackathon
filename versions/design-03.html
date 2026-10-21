@@ -1,0 +1,324 @@
+<!doctype html>
+<!-- Concept: WebGL liquid noise that ripples away from the pointer -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BuildMore Hackathon</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;900&family=Bricolage+Grotesque:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --deep: #04140f;
+        --teal: #0b3b33;
+        --lime: #c8ff3d;
+        --mist: #e9f7ea;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        background: var(--deep);
+        color: var(--mist);
+        font-family: "Bricolage Grotesque", sans-serif;
+        overflow: hidden;
+        touch-action: none;
+      }
+
+      .hero {
+        position: relative;
+        height: 100vh;
+        height: 100dvh;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        padding: 0 1.25rem;
+      }
+
+      .gl,
+      .fallback {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      .fallback {
+        display: none;
+        background: radial-gradient(circle at 30% 40%, var(--teal), var(--deep) 60%);
+      }
+
+      .no-gl .fallback {
+        display: block;
+      }
+      .no-gl .gl {
+        display: none;
+      }
+
+      /* Keeps the copy at 4.5:1 and up even when a lime crest passes behind it. */
+      .shade {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: radial-gradient(
+          ellipse 48% 42% at 50% 50%,
+          rgba(4, 20, 15, 0.72),
+          rgba(4, 20, 15, 0) 100%
+        );
+      }
+
+      .copy {
+        position: relative;
+        pointer-events: none;
+      }
+
+      .copy > * {
+        opacity: 0;
+        filter: blur(10px);
+        animation: focus 1100ms cubic-bezier(0.2, 0.7, 0.1, 1) forwards;
+      }
+
+      .title {
+        font-family: "Unbounded", sans-serif;
+        font-weight: 900;
+        font-size: clamp(2.2rem, 8vw, 7.4rem);
+        line-height: 1.02;
+        letter-spacing: -0.02em;
+        text-wrap: balance;
+        animation-delay: 150ms;
+      }
+
+      .loop {
+        margin-top: 1.5rem;
+        font-weight: 600;
+        font-size: clamp(0.95rem, 2.4vw, 1.6rem);
+        letter-spacing: 0.04em;
+        color: var(--lime);
+        animation-delay: 500ms;
+      }
+
+      .soon {
+        margin-top: 2rem;
+        display: inline-block;
+        padding: 0.55em 1.3em;
+        border: 1px solid rgba(200, 255, 61, 0.5);
+        border-radius: 999px;
+        font-size: clamp(0.75rem, 1.3vw, 0.95rem);
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+        backdrop-filter: blur(6px);
+        animation-delay: 850ms;
+      }
+
+      @keyframes focus {
+        to {
+          opacity: 1;
+          filter: blur(0);
+        }
+      }
+
+      :focus-visible {
+        outline: 2px solid var(--lime);
+        outline-offset: 4px;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .copy > * {
+          animation: none;
+          opacity: 1;
+          filter: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="hero" id="hero">
+      <canvas class="gl" id="gl" aria-hidden="true"></canvas>
+      <div class="fallback" aria-hidden="true"></div>
+      <div class="shade" aria-hidden="true"></div>
+      <div class="copy">
+        <h1 class="title">BuildMore Hackathon</h1>
+        <p class="loop">Prompt - Review - Ship - Repeat</p>
+        <p class="soon">coming soon</p>
+      </div>
+    </main>
+
+    <script id="frag" type="x-shader/x-fragment">
+      precision highp float;
+      uniform vec2 u_res;
+      uniform vec2 u_pointer;
+      uniform float u_time;
+      uniform float u_press;
+
+      vec2 hash(vec2 p) {
+        p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
+        return -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
+      }
+
+      float noise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        return mix(mix(dot(hash(i), f), dot(hash(i + vec2(1.0, 0.0)), f - vec2(1.0, 0.0)), u.x),
+                   mix(dot(hash(i + vec2(0.0, 1.0)), f - vec2(0.0, 1.0)), dot(hash(i + vec2(1.0, 1.0)), f - vec2(1.0, 1.0)), u.x), u.y);
+      }
+
+      float fbm(vec2 p) {
+        float v = 0.0;
+        float a = 0.5;
+        for (int i = 0; i < 4; i++) {
+          v += a * noise(p);
+          p = p * 2.03 + vec2(1.7, 9.2);
+          a *= 0.5;
+        }
+        return v;
+      }
+
+      void main() {
+        vec2 uv = gl_FragCoord.xy / u_res;
+        vec2 p = uv * vec2(u_res.x / u_res.y, 1.0) * 2.2;
+        vec2 m = u_pointer * vec2(u_res.x / u_res.y, 1.0) * 2.2;
+        float d = length(p - m);
+        float ripple = sin(d * 14.0 - u_time * 3.0) * exp(-d * 2.2) * (0.35 + u_press * 0.5);
+        vec2 warp = vec2(fbm(p + u_time * 0.08), fbm(p - u_time * 0.06 + 3.1));
+        float n = fbm(p + warp * 1.6 + ripple);
+        float crest = smoothstep(0.42, 0.62, n + ripple * 0.5);
+        vec3 deep = vec3(0.016, 0.078, 0.059);
+        vec3 teal = vec3(0.043, 0.231, 0.2);
+        vec3 lime = vec3(0.784, 1.0, 0.239);
+        vec3 col = mix(deep, teal, smoothstep(0.1, 0.6, n + 0.3));
+        col = mix(col, lime * 0.55, crest * 0.6);
+        col += lime * pow(max(ripple, 0.0), 2.0) * 0.6;
+        float vig = smoothstep(1.4, 0.3, length(uv - 0.5));
+        gl_FragColor = vec4(col * (0.75 + 0.25 * vig), 1.0);
+      }
+    </script>
+
+    <script>
+      (function () {
+        const hero = document.getElementById("hero");
+        const canvas = document.getElementById("gl");
+        const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const gl = canvas.getContext("webgl", { antialias: false, alpha: false });
+        const pointer = { x: 0.5, y: 0.5, tx: 0.5, ty: 0.5, press: 0 };
+        let rafId = 0;
+        let startTime = performance.now();
+
+        if (!gl) {
+          hero.classList.add("no-gl");
+          return;
+        }
+
+        function compile(type, source) {
+          const shader = gl.createShader(type);
+          gl.shaderSource(shader, source);
+          gl.compileShader(shader);
+          if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            throw new Error(gl.getShaderInfoLog(shader));
+          }
+          return shader;
+        }
+
+        const vertSrc =
+          "attribute vec2 a_pos; void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }";
+        const program = gl.createProgram();
+        try {
+          gl.attachShader(program, compile(gl.VERTEX_SHADER, vertSrc));
+          gl.attachShader(
+            program,
+            compile(gl.FRAGMENT_SHADER, document.getElementById("frag").textContent),
+          );
+          gl.linkProgram(program);
+        } catch (error) {
+          hero.classList.add("no-gl");
+          return;
+        }
+        gl.useProgram(program);
+
+        const buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+        const aPos = gl.getAttribLocation(program, "a_pos");
+        gl.enableVertexAttribArray(aPos);
+        gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+        const uRes = gl.getUniformLocation(program, "u_res");
+        const uPointer = gl.getUniformLocation(program, "u_pointer");
+        const uTime = gl.getUniformLocation(program, "u_time");
+        const uPress = gl.getUniformLocation(program, "u_press");
+
+        function resize() {
+          // Four fbm octaves per pixel: a 1.5 DPR cap keeps retina laptops at 60 fps.
+          const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+          canvas.width = Math.floor(window.innerWidth * dpr);
+          canvas.height = Math.floor(window.innerHeight * dpr);
+          gl.viewport(0, 0, canvas.width, canvas.height);
+          gl.uniform2f(uRes, canvas.width, canvas.height);
+        }
+
+        function render(now) {
+          pointer.x += (pointer.tx - pointer.x) * 0.08;
+          pointer.y += (pointer.ty - pointer.y) * 0.08;
+          pointer.press *= 0.96;
+          gl.uniform2f(uPointer, pointer.x, pointer.y);
+          gl.uniform1f(uTime, (now - startTime) / 1000);
+          gl.uniform1f(uPress, pointer.press);
+          gl.drawArrays(gl.TRIANGLES, 0, 3);
+        }
+
+        function frame(now) {
+          render(now);
+          rafId = requestAnimationFrame(frame);
+        }
+
+        function start() {
+          if (rafId || reduced) return;
+          rafId = requestAnimationFrame(frame);
+        }
+
+        function stop() {
+          cancelAnimationFrame(rafId);
+          rafId = 0;
+        }
+
+        function onMove(event) {
+          pointer.tx = event.clientX / window.innerWidth;
+          pointer.ty = 1 - event.clientY / window.innerHeight;
+        }
+
+        function onDown(event) {
+          onMove(event);
+          pointer.press = 1;
+        }
+
+        window.addEventListener("pointermove", onMove, { passive: true });
+        window.addEventListener("pointerdown", onDown, { passive: true });
+        window.addEventListener("resize", resize);
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden) stop();
+          else start();
+        });
+
+        resize();
+        if (reduced) {
+          render(startTime + 2400);
+        } else {
+          start();
+        }
+      })();
+    </script>
+  </body>
+</html>

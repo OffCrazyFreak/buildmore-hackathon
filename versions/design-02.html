@@ -1,0 +1,353 @@
+<!doctype html>
+<!-- Concept: magnetic letters on paper, pulled by a red spring cursor -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BuildMore Hackathon</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --paper: #f4efe4;
+        --paper-line: rgba(28, 25, 23, 0.07);
+        --ink: #1c1917;
+        --red: #c22a17;
+        --soft: #6b625a;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        background-color: var(--paper);
+        background-image:
+          linear-gradient(var(--paper-line) 1px, transparent 1px),
+          linear-gradient(90deg, var(--paper-line) 1px, transparent 1px);
+        background-size: 48px 48px;
+        color: var(--ink);
+        font-family: "DM Mono", monospace;
+        overflow: hidden;
+        touch-action: none;
+        cursor: none;
+      }
+
+      .hero {
+        position: relative;
+        height: 100vh;
+        height: 100dvh;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        padding: 0 1.25rem;
+      }
+
+      .hero::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          circle at 50% 50%,
+          rgba(244, 239, 228, 0) 30%,
+          rgba(214, 204, 186, 0.45) 100%
+        );
+        pointer-events: none;
+      }
+
+      .copy {
+        position: relative;
+      }
+
+      .line {
+        display: block;
+        white-space: nowrap;
+      }
+
+      .title {
+        font-family: "Instrument Serif", serif;
+        font-weight: 400;
+        font-size: clamp(2.8rem, 11vw, 10.5rem);
+        line-height: 1;
+        letter-spacing: -0.02em;
+        white-space: normal;
+      }
+
+      .loop {
+        margin-top: 1.25rem;
+        font-size: clamp(0.8rem, 2.1vw, 1.35rem);
+        font-weight: 500;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--ink);
+      }
+
+      .soon {
+        margin-top: 2rem;
+        font-family: "Instrument Serif", serif;
+        font-style: italic;
+        font-size: clamp(1.3rem, 3.2vw, 2.4rem);
+        color: var(--red);
+      }
+
+      .ch {
+        display: inline-block;
+        will-change: transform;
+        opacity: 0;
+        animation: drop 700ms cubic-bezier(0.2, 0.9, 0.3, 1.2) forwards;
+      }
+
+      .ch.space {
+        width: 0.3em;
+      }
+
+      @keyframes drop {
+        from {
+          opacity: 0;
+          transform: translateY(-0.5em) rotate(-6deg);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      .dot {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 18px;
+        height: 18px;
+        margin: -9px 0 0 -9px;
+        border-radius: 50%;
+        background: var(--red);
+        pointer-events: none;
+        z-index: 5;
+        opacity: 0;
+        transition: opacity 300ms;
+      }
+
+      .dot.on {
+        opacity: 1;
+      }
+
+      .ring {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 180px;
+        height: 180px;
+        margin: -90px 0 0 -90px;
+        border: 1px dashed rgba(194, 42, 23, 0.5);
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: 4;
+        opacity: 0;
+        transition: opacity 300ms;
+      }
+
+      .ring.on {
+        opacity: 1;
+      }
+
+      :focus-visible {
+        outline: 2px solid var(--red);
+        outline-offset: 4px;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        body {
+          cursor: auto;
+        }
+        .ch {
+          animation: none;
+          opacity: 1;
+        }
+        .dot,
+        .ring {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="hero">
+      <div class="copy">
+        <h1 class="line title" data-split>BuildMore Hackathon</h1>
+        <p class="line loop" data-split>Prompt - Review - Ship - Repeat</p>
+        <p class="line soon" data-split>coming soon</p>
+      </div>
+    </main>
+    <div class="ring" id="ring" aria-hidden="true"></div>
+    <div class="dot" id="dot" aria-hidden="true"></div>
+
+    <script>
+      (function () {
+        const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const dot = document.getElementById("dot");
+        const ring = document.getElementById("ring");
+        const letters = [];
+        const pointer = { x: -9999, y: -9999, on: false };
+        const cursor = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+        const RADIUS = 160;
+        let rafId = 0;
+        let tick = 0;
+
+        function split(node, index) {
+          const text = node.textContent;
+          node.setAttribute("aria-label", text);
+          node.textContent = "";
+          const chars = Array.from(text);
+          chars.forEach((char, i) => {
+            const span = document.createElement("span");
+            span.className = "ch" + (char === " " ? " space" : "");
+            span.textContent = char === " " ? " " : char;
+            span.setAttribute("aria-hidden", "true");
+            span.style.animationDelay = index * 220 + i * 28 + "ms";
+            // A forwards-filling animation outranks inline transforms, so drop it once it has played.
+            span.addEventListener(
+              "animationend",
+              () => {
+                span.style.animation = "none";
+                span.style.opacity = "1";
+              },
+              { once: true },
+            );
+            node.appendChild(span);
+            if (char !== " ") {
+              letters.push({
+                el: span,
+                x: 0,
+                y: 0,
+                vx: 0,
+                vy: 0,
+                cx: 0,
+                cy: 0,
+                phase: Math.random() * Math.PI * 2,
+              });
+            }
+          });
+        }
+
+        // Offsets ignore transforms, so rest positions stay correct while letters are mid-spring or mid-drop.
+        function measure() {
+          letters.forEach((l) => {
+            let x = l.el.offsetWidth / 2;
+            let y = l.el.offsetHeight / 2;
+            let node = l.el;
+            while (node) {
+              x += node.offsetLeft;
+              y += node.offsetTop;
+              node = node.offsetParent;
+            }
+            l.cx = x;
+            l.cy = y;
+          });
+        }
+
+        function step() {
+          tick += 0.016;
+          const stiffness = 0.08;
+          const damping = 0.82;
+
+          letters.forEach((l) => {
+            let tx = Math.sin(tick * 0.8 + l.phase) * 1.5;
+            let ty = Math.cos(tick * 0.6 + l.phase) * 1.5;
+
+            if (pointer.on) {
+              const dx = pointer.x - l.cx;
+              const dy = pointer.y - l.cy;
+              const d = Math.hypot(dx, dy);
+              if (d < RADIUS) {
+                const pull = (1 - d / RADIUS) * 34;
+                tx += (dx / d) * pull;
+                ty += (dy / d) * pull;
+              }
+            }
+
+            l.vx = (l.vx + (tx - l.x) * stiffness) * damping;
+            l.vy = (l.vy + (ty - l.y) * stiffness) * damping;
+            l.x += l.vx;
+            l.y += l.vy;
+            const rot = l.vx * 0.6;
+            l.el.style.transform =
+              "translate(" +
+              l.x.toFixed(2) +
+              "px," +
+              l.y.toFixed(2) +
+              "px) rotate(" +
+              rot.toFixed(2) +
+              "deg)";
+          });
+
+          cursor.x += (pointer.x - cursor.x) * 0.18;
+          cursor.y += (pointer.y - cursor.y) * 0.18;
+          dot.style.transform = "translate(" + pointer.x + "px," + pointer.y + "px)";
+          ring.style.transform =
+            "translate(" + cursor.x.toFixed(1) + "px," + cursor.y.toFixed(1) + "px)";
+        }
+
+        function frame() {
+          step();
+          rafId = requestAnimationFrame(frame);
+        }
+
+        function start() {
+          if (rafId || reduced) return;
+          rafId = requestAnimationFrame(frame);
+        }
+
+        function stop() {
+          cancelAnimationFrame(rafId);
+          rafId = 0;
+        }
+
+        function onMove(event) {
+          pointer.x = event.clientX;
+          pointer.y = event.clientY;
+          pointer.on = true;
+          dot.classList.add("on");
+          ring.classList.add("on");
+        }
+
+        function onOff() {
+          pointer.on = false;
+          dot.classList.remove("on");
+          ring.classList.remove("on");
+        }
+
+        document.querySelectorAll("[data-split]").forEach(split);
+
+        if (reduced) return;
+
+        // Letters measure wrong until the web font swaps in, so wait for fonts before caching rest positions.
+        document.fonts.ready.then(() => {
+          measure();
+          start();
+        });
+
+        window.addEventListener("pointermove", onMove, { passive: true });
+        window.addEventListener("pointerdown", onMove, { passive: true });
+        window.addEventListener("pointerup", onOff);
+        window.addEventListener("pointercancel", onOff);
+        document.addEventListener("pointerleave", onOff);
+        window.addEventListener("resize", measure);
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden) stop();
+          else start();
+        });
+      })();
+    </script>
+  </body>
+</html>

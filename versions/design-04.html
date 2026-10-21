@@ -1,0 +1,348 @@
+<!doctype html>
+<!-- Concept: risograph ball pit with gravity, the headline is a solid shelf -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BuildMore Hackathon</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --paper: #f5f0e6;
+        --ink: #17171c;
+        --blue: #0062b8;
+        --pink: #ff3f9e;
+        --yellow: #ffd400;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        background: var(--paper);
+        color: var(--ink);
+        font-family: "Archivo", sans-serif;
+        overflow: hidden;
+        touch-action: none;
+      }
+
+      .hero {
+        position: relative;
+        height: 100vh;
+        height: 100dvh;
+        display: grid;
+        place-items: center;
+      }
+
+      .pit {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        mix-blend-mode: multiply;
+      }
+
+      .grain {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.35;
+        background-image: radial-gradient(rgba(23, 23, 28, 0.18) 0.6px, transparent 0.7px);
+        background-size: 3px 3px;
+      }
+
+      .copy {
+        position: relative;
+        text-align: center;
+        padding: clamp(1rem, 3vw, 2rem) clamp(1.25rem, 4vw, 3rem);
+        background: var(--paper);
+        border: 3px solid var(--ink);
+        box-shadow: 10px 10px 0 var(--blue);
+        transform: rotate(-1.5deg);
+        pointer-events: none;
+        max-width: min(92vw, 1100px);
+      }
+
+      .copy > * {
+        opacity: 0;
+        animation: stamp 500ms cubic-bezier(0.2, 1.2, 0.3, 1) forwards;
+      }
+
+      .title {
+        font-family: "Archivo Black", sans-serif;
+        font-size: clamp(2.1rem, 8vw, 7rem);
+        line-height: 0.95;
+        text-transform: uppercase;
+        letter-spacing: -0.01em;
+        text-wrap: balance;
+        animation-delay: 100ms;
+      }
+
+      .loop {
+        margin-top: 1rem;
+        font-weight: 700;
+        font-size: clamp(0.85rem, 2.2vw, 1.5rem);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        background: var(--ink);
+        color: var(--paper);
+        display: inline-block;
+        padding: 0.35em 0.8em;
+        animation-delay: 350ms;
+      }
+
+      .soon {
+        margin-top: 1rem;
+        font-weight: 500;
+        font-size: clamp(0.8rem, 1.6vw, 1.1rem);
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        animation-delay: 600ms;
+      }
+
+      @keyframes stamp {
+        from {
+          opacity: 0;
+          transform: scale(1.25);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      :focus-visible {
+        outline: 3px solid var(--pink);
+        outline-offset: 4px;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .copy > * {
+          animation: none;
+          opacity: 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="hero">
+      <canvas class="pit" id="pit" aria-hidden="true"></canvas>
+      <div class="grain" aria-hidden="true"></div>
+      <div class="copy" id="copy">
+        <h1 class="title">BuildMore Hackathon</h1>
+        <p class="loop">Prompt - Review - Ship - Repeat</p>
+        <p class="soon">coming soon</p>
+      </div>
+    </main>
+
+    <script>
+      (function () {
+        const canvas = document.getElementById("pit");
+        const copy = document.getElementById("copy");
+        const ctx = canvas.getContext("2d");
+        const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const COLORS = ["#0062b8", "#ff3f9e", "#ffd400"];
+        const MAX_BALLS = 90;
+        const GRAVITY = 0.45;
+        const balls = [];
+        const pointer = { x: 0, y: 0, down: false };
+        const shelf = { x: 0, y: 0, w: 0, h: 0 };
+        let width = 0;
+        let height = 0;
+        let rafId = 0;
+
+        function resize() {
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          width = window.innerWidth;
+          height = window.innerHeight;
+          canvas.width = Math.floor(width * dpr);
+          canvas.height = Math.floor(height * dpr);
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          const r = copy.getBoundingClientRect();
+          shelf.x = r.left;
+          shelf.y = r.top;
+          shelf.w = r.width;
+          shelf.h = r.height;
+        }
+
+        function spawn(x, y, count) {
+          for (let i = 0; i < count; i += 1) {
+            if (balls.length >= MAX_BALLS) balls.shift();
+            const r = 14 + Math.random() * 26;
+            balls.push({
+              x: x + (Math.random() - 0.5) * 40,
+              y: y + (Math.random() - 0.5) * 40,
+              vx: (Math.random() - 0.5) * 6,
+              vy: -Math.random() * 4,
+              r: r,
+              color: COLORS[Math.floor(Math.random() * COLORS.length)],
+            });
+          }
+        }
+
+        function collideShelf(b) {
+          const cx = Math.max(shelf.x, Math.min(b.x, shelf.x + shelf.w));
+          const cy = Math.max(shelf.y, Math.min(b.y, shelf.y + shelf.h));
+          const dx = b.x - cx;
+          const dy = b.y - cy;
+          const d2 = dx * dx + dy * dy;
+          if (d2 >= b.r * b.r || d2 === 0) return;
+          const d = Math.sqrt(d2);
+          const nx = dx / d;
+          const ny = dy / d;
+          b.x = cx + nx * b.r;
+          b.y = cy + ny * b.r;
+          const dot = b.vx * nx + b.vy * ny;
+          if (dot < 0) {
+            b.vx -= nx * dot * 1.6;
+            b.vy -= ny * dot * 1.6;
+          }
+        }
+
+        function step() {
+          for (let i = 0; i < balls.length; i += 1) {
+            const b = balls[i];
+            b.vy += GRAVITY;
+
+            if (pointer.down) {
+              const dx = b.x - pointer.x;
+              const dy = b.y - pointer.y;
+              const d = Math.hypot(dx, dy) || 1;
+              if (d < 220) {
+                const f = (1 - d / 220) * 3.5;
+                b.vx += (dx / d) * f;
+                b.vy += (dy / d) * f;
+              }
+            }
+
+            b.vx *= 0.995;
+            b.x += b.vx;
+            b.y += b.vy;
+
+            if (b.x - b.r < 0) {
+              b.x = b.r;
+              b.vx = Math.abs(b.vx) * 0.6;
+            }
+            if (b.x + b.r > width) {
+              b.x = width - b.r;
+              b.vx = -Math.abs(b.vx) * 0.6;
+            }
+            if (b.y + b.r > height) {
+              b.y = height - b.r;
+              b.vy = -Math.abs(b.vy) * 0.45;
+              b.vx *= 0.9;
+            }
+            collideShelf(b);
+          }
+
+          for (let i = 0; i < balls.length; i += 1) {
+            for (let j = i + 1; j < balls.length; j += 1) {
+              const a = balls[i];
+              const b = balls[j];
+              const dx = b.x - a.x;
+              const dy = b.y - a.y;
+              const min = a.r + b.r;
+              const d2 = dx * dx + dy * dy;
+              if (d2 >= min * min || d2 === 0) continue;
+              const d = Math.sqrt(d2);
+              const nx = dx / d;
+              const ny = dy / d;
+              const overlap = (min - d) * 0.5;
+              a.x -= nx * overlap;
+              a.y -= ny * overlap;
+              b.x += nx * overlap;
+              b.y += ny * overlap;
+              const rel = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+              if (rel < 0) {
+                a.vx += nx * rel * 0.5;
+                a.vy += ny * rel * 0.5;
+                b.vx -= nx * rel * 0.5;
+                b.vy -= ny * rel * 0.5;
+              }
+            }
+          }
+        }
+
+        function draw() {
+          ctx.clearRect(0, 0, width, height);
+          for (let i = 0; i < balls.length; i += 1) {
+            const b = balls[i];
+            ctx.fillStyle = b.color;
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        function frame() {
+          step();
+          draw();
+          rafId = requestAnimationFrame(frame);
+        }
+
+        function start() {
+          if (rafId || reduced) return;
+          rafId = requestAnimationFrame(frame);
+        }
+
+        function stop() {
+          cancelAnimationFrame(rafId);
+          rafId = 0;
+        }
+
+        function onDown(event) {
+          pointer.x = event.clientX;
+          pointer.y = event.clientY;
+          pointer.down = true;
+          spawn(event.clientX, event.clientY, 4);
+        }
+
+        function onMove(event) {
+          pointer.x = event.clientX;
+          pointer.y = event.clientY;
+        }
+
+        function onUp() {
+          pointer.down = false;
+        }
+
+        window.addEventListener("pointerdown", onDown, { passive: true });
+        window.addEventListener("pointermove", onMove, { passive: true });
+        window.addEventListener("pointerup", onUp);
+        window.addEventListener("pointercancel", onUp);
+        window.addEventListener("resize", resize);
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden) stop();
+          else start();
+        });
+
+        document.fonts.ready.then(() => {
+          resize();
+          for (let i = 0; i < 40; i += 1) {
+            spawn(Math.random() * width, -60 - Math.random() * height, 1);
+          }
+          if (reduced) {
+            // Settle the pile offline so the still frame looks like the end state, not a mid-air drop.
+            for (let i = 0; i < 400; i += 1) step();
+            draw();
+          } else {
+            start();
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

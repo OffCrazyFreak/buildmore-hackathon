@@ -1,0 +1,267 @@
+<!doctype html>
+<!-- Concept: amber phosphor glyph rain that the pointer sets glowing -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BuildMore Hackathon</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #0b0a08;
+        --amber: #ffb000;
+        --hot: #fff1c2;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--amber);
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        overflow: hidden;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+
+      #rain {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .scan {
+        position: fixed;
+        inset: 0;
+        background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.22) 0 2px, transparent 2px 4px);
+        pointer-events: none;
+      }
+
+      .hero {
+        position: relative;
+        min-height: 100%;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        padding: 6vmin;
+        pointer-events: none;
+      }
+
+      .panel {
+        padding: 8vmin 10vmin;
+        background: radial-gradient(
+          ellipse at center,
+          rgba(11, 10, 8, 0.96) 35%,
+          rgba(11, 10, 8, 0) 72%
+        );
+      }
+
+      .hero h1 {
+        font-size: clamp(2rem, 7.5vw, 7rem);
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: -0.04em;
+        text-shadow: 0 0 24px rgba(255, 176, 0, 0.45);
+      }
+
+      .tagline {
+        margin-top: 1.2em;
+        font-size: clamp(0.9rem, 2.4vw, 1.8rem);
+        font-weight: 400;
+        letter-spacing: 0.08em;
+      }
+
+      .soon {
+        margin-top: 1.4em;
+        font-size: clamp(1rem, 2.4vw, 1.8rem);
+        font-weight: 400;
+        color: var(--hot);
+      }
+
+      .cursor {
+        display: inline-block;
+        width: 0.6em;
+        height: 1em;
+        margin-left: 0.2em;
+        vertical-align: -0.1em;
+        background: var(--hot);
+        animation: blink 1s steps(2, start) infinite;
+      }
+
+      @keyframes blink {
+        to {
+          visibility: hidden;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .cursor {
+          animation: none;
+        }
+      }
+
+      :focus-visible {
+        outline: 3px solid var(--hot);
+        outline-offset: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="rain" aria-hidden="true"></canvas>
+    <div class="scan" aria-hidden="true"></div>
+    <main class="hero">
+      <div class="panel">
+        <h1>BuildMore Hackathon</h1>
+        <p class="tagline">Prompt - Review - Ship - Repeat</p>
+        <p class="soon">coming soon<span class="cursor" aria-hidden="true"></span></p>
+      </div>
+    </main>
+    <script>
+      (function () {
+        const canvas = document.getElementById("rain");
+        const ctx = canvas.getContext("2d");
+        const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const glyphs = "BUILDMORE PROMPT REVIEW SHIP REPEAT <>/{}[]#01*+=;:";
+        const cell = 18;
+        const bg = "#0b0a08";
+        const amber = "#ffb000";
+        const hot = "#fff1c2";
+        const pointer = { x: -9999, y: -9999, down: false };
+        let drops = [];
+        let cols = 0;
+        let rows = 0;
+        let width = 0;
+        let height = 0;
+        let frame = 0;
+
+        function pick() {
+          return glyphs[Math.floor(Math.random() * glyphs.length)];
+        }
+
+        function reset(d) {
+          d.y = -Math.random() * rows;
+          d.speed = 0.25 + Math.random() * 0.55;
+          return d;
+        }
+
+        function drawStill() {
+          ctx.fillStyle = "rgba(255, 176, 0, 0.35)";
+          for (let c = 0; c < cols; c += 1) {
+            for (let r = 0; r < rows; r += 1) {
+              if (Math.random() < 0.12) ctx.fillText(pick(), c * cell, r * cell);
+            }
+          }
+        }
+
+        function resize() {
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          width = window.innerWidth;
+          height = window.innerHeight;
+          canvas.width = Math.round(width * dpr);
+          canvas.height = Math.round(height * dpr);
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          ctx.font = "800 15px 'JetBrains Mono', monospace";
+          ctx.textBaseline = "top";
+          cols = Math.ceil(width / cell);
+          rows = Math.ceil(height / cell);
+          drops = [];
+          for (let c = 0; c < cols; c += 1) drops.push(reset({}));
+          ctx.fillStyle = bg;
+          ctx.fillRect(0, 0, width, height);
+          if (reduceMotion) drawStill();
+        }
+
+        function step() {
+          ctx.fillStyle = "rgba(11, 10, 8, 0.16)";
+          ctx.fillRect(0, 0, width, height);
+          const radius = pointer.down ? 220 : 140;
+          for (let c = 0; c < cols; c += 1) {
+            const d = drops[c];
+            const x = c * cell;
+            const dx = x - pointer.x;
+            const nearColumn = Math.abs(dx) < radius;
+            const prev = Math.floor(d.y);
+            d.y += nearColumn ? d.speed * 2.2 : d.speed;
+            const row = Math.floor(d.y);
+            if (row !== prev) {
+              const y = row * cell;
+              const dy = y - pointer.y;
+              ctx.fillStyle = dx * dx + dy * dy < radius * radius ? hot : amber;
+              ctx.fillText(pick(), x, y);
+            }
+            if (d.y > rows + 4) reset(d);
+          }
+          if (pointer.x > -1) {
+            // Sparks around the pointer so touch leaves a mark even between rain heads.
+            ctx.fillStyle = hot;
+            const sparks = pointer.down ? 14 : 5;
+            for (let i = 0; i < sparks; i += 1) {
+              const ang = Math.random() * Math.PI * 2;
+              const dist = Math.random() * radius;
+              const cx = Math.round((pointer.x + Math.cos(ang) * dist) / cell);
+              const cy = Math.round((pointer.y + Math.sin(ang) * dist) / cell);
+              ctx.fillText(pick(), cx * cell, cy * cell);
+            }
+          }
+          frame = requestAnimationFrame(step);
+        }
+
+        function start() {
+          if (!frame && !reduceMotion) frame = requestAnimationFrame(step);
+        }
+
+        function stop() {
+          cancelAnimationFrame(frame);
+          frame = 0;
+        }
+
+        function track(e) {
+          pointer.x = e.clientX;
+          pointer.y = e.clientY;
+        }
+
+        window.addEventListener("pointermove", track);
+        window.addEventListener("pointerdown", (e) => {
+          pointer.down = true;
+          track(e);
+        });
+        window.addEventListener("pointerup", () => {
+          pointer.down = false;
+        });
+        window.addEventListener("pointercancel", () => {
+          pointer.down = false;
+        });
+        document.documentElement.addEventListener("pointerleave", () => {
+          pointer.x = -9999;
+          pointer.y = -9999;
+          pointer.down = false;
+        });
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden) stop();
+          else start();
+        });
+        window.addEventListener("resize", resize);
+
+        resize();
+        start();
+      })();
+    </script>
+  </body>
+</html>

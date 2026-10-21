@@ -1,0 +1,238 @@
+<!doctype html>
+<!-- Concept: ink particles swirling in a flow field around the pointer -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BuildMore Hackathon</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,900;1,9..144,400&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --paper: #f4efe6;
+        --ink: #1c1814;
+        --rust: #9e3a21;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        background: var(--paper);
+        color: var(--ink);
+        font-family: "Fraunces", Georgia, serif;
+        overflow: hidden;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+
+      #field {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .hero {
+        position: relative;
+        min-height: 100%;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        padding: 6vmin;
+        pointer-events: none;
+      }
+
+      .hero h1 {
+        font-size: clamp(2.6rem, 9vw, 8.5rem);
+        font-weight: 900;
+        font-variation-settings: "opsz" 144;
+        line-height: 0.95;
+        letter-spacing: -0.03em;
+      }
+
+      .tagline {
+        margin-top: 1.1em;
+        font-size: clamp(1rem, 2.6vw, 2rem);
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--rust);
+      }
+
+      .soon {
+        margin-top: 0.9em;
+        font-size: clamp(1.2rem, 3vw, 2.4rem);
+        font-style: italic;
+        font-weight: 400;
+      }
+
+      :focus-visible {
+        outline: 3px solid var(--rust);
+        outline-offset: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="field" aria-hidden="true"></canvas>
+    <main class="hero">
+      <div>
+        <h1>BuildMore Hackathon</h1>
+        <p class="tagline">Prompt - Review - Ship - Repeat</p>
+        <p class="soon">coming soon</p>
+      </div>
+    </main>
+    <script>
+      (function () {
+        const canvas = document.getElementById("field");
+        const ctx = canvas.getContext("2d");
+        const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const colors = ["#1c1814", "#9e3a21", "#2f5d7c"];
+        const pointer = { x: -9999, y: -9999, down: false };
+        let particles = [];
+        let width = 0;
+        let height = 0;
+        let time = 0;
+        let frame = 0;
+
+        function spawn(p) {
+          p.x = Math.random() * width;
+          p.y = Math.random() * height;
+          p.px = p.x;
+          p.py = p.y;
+          p.vx = 0;
+          p.vy = 0;
+          p.life = 120 + Math.random() * 240;
+          return p;
+        }
+
+        function flowAngle(x, y) {
+          return (Math.sin(x * 0.0035 + time) + Math.cos(y * 0.0028 - time * 0.6)) * Math.PI;
+        }
+
+        function step(fade) {
+          time += 0.0035;
+          if (fade) {
+            ctx.fillStyle = "rgba(244, 239, 230, 0.1)";
+            ctx.fillRect(0, 0, width, height);
+          }
+          const radius = Math.min(260, width * 0.25);
+          for (const p of particles) {
+            const a = flowAngle(p.x, p.y);
+            p.vx += Math.cos(a) * 0.06;
+            p.vy += Math.sin(a) * 0.06;
+            const dx = p.x - pointer.x;
+            const dy = p.y - pointer.y;
+            const d2 = dx * dx + dy * dy;
+            if (d2 < radius * radius) {
+              const d = Math.sqrt(d2) || 1;
+              const f = (1 - d / radius) * (pointer.down ? -0.9 : 1.1);
+              // Tangential push makes a vortex instead of a plain shove.
+              p.vx += (-dy / d) * f + (dx / d) * f * 0.35;
+              p.vy += (dx / d) * f + (dy / d) * f * 0.35;
+            }
+            p.vx *= 0.95;
+            p.vy *= 0.95;
+            p.px = p.x;
+            p.py = p.y;
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life -= 1;
+            if (p.life < 0 || p.x < -10 || p.x > width + 10 || p.y < -10 || p.y > height + 10)
+              spawn(p);
+          }
+          for (let c = 0; c < colors.length; c += 1) {
+            ctx.strokeStyle = colors[c];
+            ctx.beginPath();
+            for (const p of particles) {
+              if (p.color !== c) continue;
+              ctx.moveTo(p.px, p.py);
+              ctx.lineTo(p.x, p.y);
+            }
+            ctx.stroke();
+          }
+        }
+
+        function resize() {
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          width = window.innerWidth;
+          height = window.innerHeight;
+          canvas.width = Math.round(width * dpr);
+          canvas.height = Math.round(height * dpr);
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          ctx.lineWidth = 1.1;
+          ctx.lineCap = "round";
+          ctx.fillStyle = "#f4efe6";
+          ctx.fillRect(0, 0, width, height);
+          const count = Math.min(900, Math.floor((width * height) / 1600));
+          particles = [];
+          for (let i = 0; i < count; i += 1) {
+            particles.push(spawn({ color: i % colors.length }));
+          }
+          if (reduceMotion) {
+            // One long still exposure stands in for the loop so the page is not blank.
+            for (let i = 0; i < 90; i += 1) step(false);
+          }
+        }
+
+        function loop() {
+          step(true);
+          frame = requestAnimationFrame(loop);
+        }
+
+        function start() {
+          if (!frame && !reduceMotion) frame = requestAnimationFrame(loop);
+        }
+
+        function stop() {
+          cancelAnimationFrame(frame);
+          frame = 0;
+        }
+
+        function track(e) {
+          pointer.x = e.clientX;
+          pointer.y = e.clientY;
+        }
+
+        window.addEventListener("pointermove", track);
+        window.addEventListener("pointerdown", (e) => {
+          pointer.down = true;
+          track(e);
+        });
+        window.addEventListener("pointerup", () => {
+          pointer.down = false;
+        });
+        window.addEventListener("pointercancel", () => {
+          pointer.down = false;
+        });
+        document.documentElement.addEventListener("pointerleave", () => {
+          pointer.x = -9999;
+          pointer.y = -9999;
+          pointer.down = false;
+        });
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden) stop();
+          else start();
+        });
+        window.addEventListener("resize", resize);
+
+        resize();
+        start();
+      })();
+    </script>
+  </body>
+</html>

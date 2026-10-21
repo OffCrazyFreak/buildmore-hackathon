@@ -1,0 +1,326 @@
+<!doctype html>
+<!-- Concept: amber phosphor glyph rain bent by pointer wind -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BuildMore Hackathon</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=VT323&family=Azeret+Mono:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --crt: #0e0a04;
+        --amber: #ffb000;
+        --amber-dim: #7a4f00;
+        --bone: #ffe9bf;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        background: var(--crt);
+        color: var(--bone);
+        font-family: "Azeret Mono", monospace;
+        overflow: hidden;
+        touch-action: none;
+      }
+
+      .hero {
+        position: relative;
+        height: 100vh;
+        height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding: 0 1rem;
+      }
+
+      .rain {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      .scan {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background:
+          repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 3px),
+          radial-gradient(
+            ellipse 70% 70% at 50% 50%,
+            rgba(14, 10, 4, 0) 40%,
+            rgba(14, 10, 4, 0.85) 100%
+          );
+      }
+
+      .copy {
+        position: relative;
+        text-align: center;
+        pointer-events: none;
+        padding: clamp(1rem, 3vw, 2.5rem) clamp(1rem, 4vw, 3rem);
+        background: rgba(14, 10, 4, 0.82);
+        outline: 1px solid var(--amber-dim);
+        outline-offset: -8px;
+        box-shadow: 0 0 60px rgba(255, 176, 0, 0.12);
+      }
+
+      /* clip-path reveals without changing layout, so the box keeps its final width from the first frame. */
+      .typed {
+        display: inline-block;
+        clip-path: inset(0 100% 0 0);
+        animation: type 900ms steps(30) forwards;
+      }
+
+      .title {
+        font-family: "VT323", monospace;
+        font-weight: 400;
+        font-size: clamp(2.6rem, 10vw, 9rem);
+        line-height: 1;
+        text-wrap: balance;
+        color: var(--amber);
+        text-shadow: 0 0 18px rgba(255, 176, 0, 0.45);
+      }
+
+      .title .typed {
+        animation-delay: 200ms;
+      }
+
+      .loop {
+        margin-top: 1.2rem;
+        font-size: clamp(0.8rem, 2vw, 1.3rem);
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .loop .typed {
+        animation-delay: 1300ms;
+      }
+
+      .soon {
+        margin-top: 1.4rem;
+        font-size: clamp(0.75rem, 1.5vw, 1rem);
+        letter-spacing: 0.3em;
+        color: var(--amber);
+      }
+
+      .soon .typed {
+        animation-delay: 2200ms;
+      }
+
+      .soon::before {
+        content: "> ";
+        color: var(--amber-dim);
+      }
+
+      .cursor {
+        display: inline-block;
+        width: 0.6em;
+        height: 1em;
+        margin-left: 0.15em;
+        vertical-align: text-bottom;
+        background: var(--amber);
+        animation: blink 1s steps(2, start) infinite;
+      }
+
+      @keyframes type {
+        to {
+          clip-path: inset(0 0 0 0);
+        }
+      }
+
+      @keyframes blink {
+        to {
+          visibility: hidden;
+        }
+      }
+
+      :focus-visible {
+        outline: 2px solid var(--amber);
+        outline-offset: 4px;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .typed {
+          animation: none;
+          clip-path: none;
+        }
+        .cursor {
+          animation: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="hero">
+      <canvas class="rain" id="rain" aria-hidden="true"></canvas>
+      <div class="scan" aria-hidden="true"></div>
+      <div class="copy">
+        <h1 class="title"><span class="typed">BuildMore Hackathon</span></h1>
+        <p class="loop"><span class="typed">Prompt - Review - Ship - Repeat</span></p>
+        <p class="soon">
+          <span class="typed">coming soon</span><span class="cursor" aria-hidden="true"></span>
+        </p>
+      </div>
+    </main>
+
+    <script>
+      (function () {
+        const canvas = document.getElementById("rain");
+        const ctx = canvas.getContext("2d");
+        const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const GLYPHS = "PROMPTREVIEWSHIPREPEAT01<>/{}=;#";
+        const MAX_COLUMNS = 140;
+        const pointer = { x: -9999, y: -9999, on: false, lastX: 0, vx: 0 };
+        const columns = [];
+        let width = 0;
+        let height = 0;
+        let cell = 18;
+        let rafId = 0;
+        let wind = 0;
+
+        function resize() {
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          width = window.innerWidth;
+          height = window.innerHeight;
+          canvas.width = Math.floor(width * dpr);
+          canvas.height = Math.floor(height * dpr);
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          cell = Math.max(14, Math.min(24, Math.floor(width / 70)));
+          ctx.font = cell + "px 'VT323', monospace";
+          ctx.textBaseline = "top";
+          seed();
+        }
+
+        function seed() {
+          const count = Math.min(MAX_COLUMNS, Math.floor(width / cell));
+          columns.length = 0;
+          for (let i = 0; i < count; i += 1) {
+            columns.push({
+              x: i * cell,
+              drift: 0,
+              y: Math.random() * height,
+              speed: 60 + Math.random() * 160,
+              length: 6 + Math.floor(Math.random() * 14),
+              seedChar: Math.floor(Math.random() * GLYPHS.length),
+            });
+          }
+        }
+
+        function step(dt) {
+          wind += ((pointer.on ? pointer.vx * 0.6 : 0) - wind) * 0.05;
+          pointer.vx *= 0.9;
+          for (let i = 0; i < columns.length; i += 1) {
+            const c = columns[i];
+            let boost = 1;
+            if (pointer.on) {
+              const d = Math.abs(c.x + c.drift - pointer.x);
+              if (d < 180) boost = 1 + (1 - d / 180) * 2.5;
+            }
+            c.y += c.speed * boost * dt;
+            c.drift += (wind * boost - c.drift * 0.6) * dt * 4;
+            if (c.y - c.length * cell > height) {
+              c.y = -Math.random() * height * 0.5;
+              c.length = 6 + Math.floor(Math.random() * 14);
+              c.seedChar = Math.floor(Math.random() * GLYPHS.length);
+            }
+          }
+        }
+
+        function draw(now) {
+          ctx.fillStyle = "rgba(14, 10, 4, 0.35)";
+          ctx.fillRect(0, 0, width, height);
+          const flicker = Math.floor(now / 90);
+          for (let i = 0; i < columns.length; i += 1) {
+            const c = columns[i];
+            const headRow = Math.floor(c.y / cell);
+            for (let k = 0; k < c.length; k += 1) {
+              const row = headRow - k;
+              const y = row * cell;
+              if (y < -cell || y > height) continue;
+              const t = 1 - k / c.length;
+              const charIndex = (c.seedChar + row * 7 + (k === 0 ? flicker : 0)) % GLYPHS.length;
+              const near = pointer.on
+                ? Math.max(0, 1 - Math.hypot(c.x + c.drift - pointer.x, y - pointer.y) / 200)
+                : 0;
+              const alpha = Math.min(1, t * t * 0.75 + near * 0.6);
+              ctx.fillStyle =
+                k === 0
+                  ? "rgba(255, 233, 191, " + alpha.toFixed(2) + ")"
+                  : "rgba(255, 176, 0, " + (alpha * 0.85).toFixed(2) + ")";
+              ctx.fillText(GLYPHS[charIndex], c.x + c.drift, y);
+            }
+          }
+        }
+
+        let last = 0;
+        function frame(now) {
+          const dt = Math.min(0.05, (now - last) / 1000) || 0.016;
+          last = now;
+          step(dt);
+          draw(now);
+          rafId = requestAnimationFrame(frame);
+        }
+
+        function start() {
+          if (rafId || reduced) return;
+          last = performance.now();
+          rafId = requestAnimationFrame(frame);
+        }
+
+        function stop() {
+          cancelAnimationFrame(rafId);
+          rafId = 0;
+        }
+
+        function onMove(event) {
+          if (pointer.on) pointer.vx = pointer.vx * 0.5 + (event.clientX - pointer.lastX) * 0.5;
+          pointer.lastX = event.clientX;
+          pointer.x = event.clientX;
+          pointer.y = event.clientY;
+          pointer.on = true;
+        }
+
+        function onOff() {
+          pointer.on = false;
+        }
+
+        window.addEventListener("pointermove", onMove, { passive: true });
+        window.addEventListener("pointerdown", onMove, { passive: true });
+        window.addEventListener("pointerup", onOff);
+        window.addEventListener("pointercancel", onOff);
+        document.addEventListener("pointerleave", onOff);
+        window.addEventListener("resize", resize);
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden) stop();
+          else start();
+        });
+
+        document.fonts.ready.then(() => {
+          resize();
+          if (reduced) {
+            ctx.fillStyle = "#0e0a04";
+            ctx.fillRect(0, 0, width, height);
+            draw(0);
+          } else {
+            start();
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>
