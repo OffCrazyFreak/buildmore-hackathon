@@ -1,4 +1,4 @@
-# BuildMore Hackathon landing
+# BuildMore Hackathon 
 
 A single animated hero for the BuildMore Hackathon: the letters are the only light source, embers stream out of them across the screen, letters spring away from the pointer and spray sparks when they move fast, and a press pulls every ember inward.
 
@@ -13,4 +13,4 @@ A single animated hero for the BuildMore Hackathon: the letters are the only lig
 
 The page loads `main.js` as a native ES module, which browsers refuse over `file://`, so serve the folder over HTTP: `python3 -m http.server`, then open `http://localhost:8000/`. No build step, no bundler, no npm packages. Google Fonts is the only external request.
 
-Published with GitHub Pages from the `main` branch.
+[Published with GitHub Pages](https://offcrazyfreak.github.io/buildmore-hackathon/) from the `main` branch.
