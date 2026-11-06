@@ -1,4 +1,4 @@
-const MAX_PARTICLES = 1400;
+const MAX_PARTICLES = 5000;
 
 export function poolCount(view, areaPerParticle) {
   return Math.max(

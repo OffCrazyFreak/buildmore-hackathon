@@ -54,7 +54,7 @@ export function createEmberField({ pointer, homes, colorCount }) {
   }
 
   function seed(view) {
-    particles = createPool(poolCount(view, 900), (i) =>
+    particles = createPool(poolCount(view, 250), (i) =>
       spawn({ color: i % colorCount }, randomItem(homes), 0, 0),
     );
     cursor = 0;
